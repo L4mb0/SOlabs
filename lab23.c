@@ -24,10 +24,9 @@ int sum = 0;
 int tiempo = 0;
 int segundos, minutos, horas, segundosRestantes;
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
-int cc = 0;
+pthread_barrier_t barrier;
 
 /////////////////////////////////////////
 
@@ -37,6 +36,7 @@ void *comer(void *idFilosofo) {
         pthread_mutex_lock(&mutex);
         pthread_cond_wait(&cond, &mutex);
         pthread_mutex_unlock(&mutex);
+        //pthread_barrier_wait(&barrier);
 
 
         if (palitos > 1) {
@@ -55,7 +55,6 @@ void *comer(void *idFilosofo) {
             printf("Filosofo %d esta hablando\n", *id);
         }
 
-        cc++;
         if (makis[*id] == 0)break;
     }
     pthread_exit(NULL);
@@ -64,6 +63,7 @@ void *comer(void *idFilosofo) {
 
 int main() {
 
+    pthread_barrier_init(&barrier, NULL, INDEX);
     pthread_t tid[INDEX];
 
 
@@ -74,7 +74,7 @@ int main() {
     while(true) {
         pthread_cond_broadcast(&cond); //GO
 
-        sleep(0);
+        sched_yield();
 
         palitos=5;
         for (int j = 0; j < 5; ++j) {
@@ -93,6 +93,8 @@ int main() {
 
     for (int i = 0; i < INDEX; i++)
         pthread_join(tid[i], NULL);
+
+    //pthread_barrier_destroy(&barrier);
 
 
     horas=tiempo/(60*60);
