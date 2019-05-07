@@ -220,6 +220,8 @@ int main() {
 
     pthread_t tid[TT];
     char casos;
+    
+    printf("NOTA: CAMBIA #define TT PARA JUGAR CON EL NUMERO DE THREADS\n\n")
 
     //printf("ingrese el numero de threads a usar (NOTA: SI USAS CENTRALIZED BARRIER O RSB NECESITAS CAMBIAR EL DEFINE TT EN LA SECCION DE VARIABLES GLOBALES)\n>>");
     //scanf("%d", &TT);
