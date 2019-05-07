@@ -17,8 +17,10 @@
 
 /////////////////////////////////////////
 
-
+#define ITERACIONES 100
+#define TT 8
 int THREADS=0;
+int BARRERAS=0;
 int count = 0;
 
 volatile unsigned long variable = 0;
@@ -85,10 +87,10 @@ void *contarTATAS(void *arg){
     int x=0;
 
     while(true){
-        btatas_acquire(&variable);
+        tatas_acquire(&variable);
         x++;
         count++;
-        btatas_release(&variable);
+        tatas_release(&variable);
         if (x>=50000) {
             printf("hilo %ld salio\n", id);
             pthread_exit(NULL);}
@@ -138,13 +140,88 @@ void *contarTicket(void *arg){
 }
 
 /////////////////////////////////////////
+pthread_barrier_t barrera;
+
+void *usandoPthreadBarrier(void *arg){
+    long id=(long)arg;
+
+    for (int i = 0; i < BARRERAS; ++i) {
+        pthread_barrier_wait(&barrera);
+    }
+
+    printf("barrera %ld salio\n", id);
+    pthread_exit(NULL);
+
+}
+
+/////////////////////////////////////////
+
+void centralizedBarrier(int id){
+
+    static volatile unsigned long count = 0;
+    static volatile unsigned int sense = 0;
+    static volatile unsigned int local_sense = 0;
+
+    local_sense = !local_sense;
+    if (fai(&count) == TT-1) {
+        count = 0;
+        sense = local_sense;
+    } else {
+        while (sense != local_sense);
+    }
+}
+
+void *usandoBCentral(void* arg){
+    long id=(long)arg;
+
+    for (int i = 0; i < BARRERAS; ++i) {
+        centralizedBarrier((int) id);
+    }
+
+    printf("barrera %ld salio\n", id);
+    pthread_exit(NULL);
+
+
+}
+
+/////////////////////////////////////////
+
+void reverseSense(int id) {
+    static volatile unsigned long count = 0;
+    static volatile unsigned int sense = 0;
+    static volatile unsigned int threads_sense[TT] = {0};
+
+    threads_sense[id] = !threads_sense[id];
+    if (fai(&count) == TT - 1) {
+        count = 0;
+        sense = !sense;
+    } else {
+        while (sense != threads_sense[id]);
+    }
+}
+
+void *reverseSenseBarrier(void* arg){
+    long id=(long)arg;
+
+    for (int i = 0; i < BARRERAS; ++i) {
+        reverseSense((int) id);
+    }
+
+    printf("barrera %ld salio\n", id);
+    pthread_exit(NULL);
+
+}
+
+/////////////////////////////////////////
 
 int main() {
+    int a=0;
+    double sumTotal=0;
 
     pthread_t tid[THREADS];
     char casos;
 
-    printf("ingrese el numero de threads a usar\n>>");
+    printf("ingrese el numero de threads a usar (NOTA: SI USAS CENTRALIZED BARRIER O RSB NECESITAS CAMBIAR EL DEFINE TT EN LA SECCION DE VARIABLES GLOBALES)\n>>");
     scanf("%d", &THREADS);
 
     printf("\ningrese la letra de la funcion que quiere probar(ej: a ): \n"
@@ -154,6 +231,9 @@ int main() {
            "d) tastas\n"
            "e) tastas con backoff\n"
            "f) ticket\n"
+           "g) pthread barrier\n"
+           "h) barrera central clasica\n"
+           "i) reverse sense barrier\n"
            ">> ");
     scanf(" %c", &casos);
     printf("\n//////////////////////////////////////////////////////////\n\n");
@@ -165,23 +245,30 @@ int main() {
         case 'a':
             printf("sin sincronismo: \n\n");
 
+            while(a!=ITERACIONES) {
 
-            start = gethrtime_x86();
+                start = gethrtime_x86();
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_create(&tid[i], NULL, contarSinSincronismo, (void*)i);
-
-
-            for (long i = 0; i < THREADS; i++)
-                pthread_join(tid[i], NULL);
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, contarSinSincronismo, (void *) i);
 
 
-            end = gethrtime_x86();
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
 
             printf("\ncount -> %d", count);
 
-            totalTime = end -start;
-            printf("\ntiempo en realizar la operacion es %Le\n", totalTime);
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
 
 
             return 0;
@@ -191,22 +278,31 @@ int main() {
 
             printf("pthread lock: \n");
 
-            start = gethrtime_x86();
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_create(&tid[i], NULL, contarPthreadLock, (void*)i);
+            while(a!=ITERACIONES) {
+
+                start = gethrtime_x86();
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, contarPthreadLock, (void *) i);
 
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_join(tid[i], NULL);
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
 
 
-            end = gethrtime_x86();
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
 
             printf("\ncount -> %d", count);
 
-            totalTime = end-start;
-            printf("\ntiempo en realizar la operacion es %Le\n", totalTime);
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
 
 
             return 0;
@@ -215,22 +311,30 @@ int main() {
         case 'c':
             printf("TAS lock: \n");
 
-            start = gethrtime_x86();
+            while(a!=ITERACIONES) {
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_create(&tid[i], NULL, contarTAS, (void*)i);
+                start = gethrtime_x86();
 
-
-            for (long i = 0; i < THREADS; i++)
-                pthread_join(tid[i], NULL);
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, contarTAS, (void *) i);
 
 
-            end = gethrtime_x86();
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
 
             printf("\ncount -> %d", count);
 
-            totalTime = end-start;
-            printf("\ntiempo en realizar la operacion es %Le\n", totalTime);
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
 
 
             return 0;
@@ -238,22 +342,30 @@ int main() {
         case 'd':
             printf("TATAS lock: \n");
 
-            start = gethrtime_x86();
+            while(a!=ITERACIONES) {
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_create(&tid[i], NULL, contarTATAS, (void*)i);
+                start = gethrtime_x86();
 
-
-            for (long i = 0; i < THREADS; i++)
-                pthread_join(tid[i], NULL);
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, contarTATAS, (void *) i);
 
 
-            end = gethrtime_x86();
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
 
             printf("\ncount -> %d", count);
 
-            totalTime = end-start;
-            printf("\ntiempo en realizar la operacion es %Le\n", totalTime);
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
 
 
             return 0;
@@ -261,22 +373,30 @@ int main() {
         case 'e':
             printf("TATAS con backoff lock: \n");
 
-            start = gethrtime_x86();
+            while(a!=ITERACIONES) {
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_create(&tid[i], NULL, contarTATASBackoff, (void*)i);
+                start = gethrtime_x86();
 
-
-            for (long i = 0; i < THREADS; i++)
-                pthread_join(tid[i], NULL);
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, contarTATASBackoff, (void *) i);
 
 
-            end = gethrtime_x86();
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
 
             printf("\ncount -> %d", count);
 
-            totalTime = end-start;
-            printf("\ntiempo en realizar la operacion es %Le\n", totalTime);
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
 
 
             return 0;
@@ -284,22 +404,130 @@ int main() {
         case 'f':
             printf("Ticket lock: \n");
 
-            start = gethrtime_x86();
+            while(a!=ITERACIONES) {
 
-            for (long i = 0; i < THREADS; i++)
-                pthread_create(&tid[i], NULL, contarTicket, (void*)i);
+                start = gethrtime_x86();
 
-
-            for (long i = 0; i < THREADS; i++)
-                pthread_join(tid[i], NULL);
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, contarTicket, (void *) i);
 
 
-            end = gethrtime_x86();
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
 
             printf("\ncount -> %d", count);
 
-            totalTime = end-start;
-            printf("\ntiempo en realizar la operacion es %Le\n", totalTime);
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
+
+
+            return 0;
+
+        case 'g':
+            printf("pthread barrier: \n"
+                   "ingrese el numero de veces que quieres llegar a la barrera:\n>> ");
+            pthread_barrier_init(&barrera, NULL, THREADS);
+
+            scanf("%d", &BARRERAS);
+
+            while(a!=ITERACIONES) {
+
+                start = gethrtime_x86();
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, usandoPthreadBarrier, (void *) i);
+
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
+
+
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
+
+
+            return 0;
+
+        case 'h':
+            printf("central barrier: \n"
+                   "ingrese el numero de veces que quieres llegar a la barrera:\n>> ");
+
+            scanf("%d", &BARRERAS);
+
+            while(a!=ITERACIONES) {
+
+                start = gethrtime_x86();
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, usandoBCentral, (void *) i);
+
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
+
+
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
+
+
+            return 0;
+
+        case 'i':
+            printf("reverse sense barrier: \n"
+                   "ingrese el numero de veces que quieres llegar a la barrera:\n>> ");
+
+            scanf("%d", &BARRERAS);
+
+            while(a!=ITERACIONES) {
+
+                start = gethrtime_x86();
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_create(&tid[i], NULL, reverseSenseBarrier, (void *) i);
+
+
+                for (long i = 0; i < THREADS; i++)
+                    pthread_join(tid[i], NULL);
+
+
+                end = gethrtime_x86();
+
+                sumTotal += (end-start);
+                a++;
+
+            }
+
+
+
+            totalTime = sumTotal/a;
+            printf("\ntiempo PROMEDIO en realizar %d operaciones es %Le\n",  a,totalTime);
 
 
             return 0;
