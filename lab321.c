@@ -19,7 +19,7 @@
 
 #define ITERACIONES 100
 #define TT 8
-int THREADS=0;
+//int TT=0;
 int BARRERAS=0;
 int count = 0;
 
@@ -68,8 +68,8 @@ void *contarTAS(void *arg){
     int x=0;
 
     while(true){
-        while(tas(&variable)==1);
         x++;
+        while(tas(&variable)==1);
         count++;
         variable=0;
         if (x>=50000) {
@@ -218,11 +218,11 @@ int main() {
     int a=0;
     double sumTotal=0;
 
-    pthread_t tid[THREADS];
+    pthread_t tid[TT];
     char casos;
 
-    printf("ingrese el numero de threads a usar (NOTA: SI USAS CENTRALIZED BARRIER O RSB NECESITAS CAMBIAR EL DEFINE TT EN LA SECCION DE VARIABLES GLOBALES)\n>>");
-    scanf("%d", &THREADS);
+    //printf("ingrese el numero de threads a usar (NOTA: SI USAS CENTRALIZED BARRIER O RSB NECESITAS CAMBIAR EL DEFINE TT EN LA SECCION DE VARIABLES GLOBALES)\n>>");
+    //scanf("%d", &TT);
 
     printf("\ningrese la letra de la funcion que quiere probar(ej: a ): \n"
            "a) sin sincronismo\n"
@@ -249,11 +249,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, contarSinSincronismo, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -283,11 +283,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, contarPthreadLock, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -315,11 +315,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, contarTAS, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -346,11 +346,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, contarTATAS, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -377,11 +377,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, contarTATASBackoff, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -408,11 +408,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, contarTicket, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -435,7 +435,7 @@ int main() {
         case 'g':
             printf("pthread barrier: \n"
                    "ingrese el numero de veces que quieres llegar a la barrera:\n>> ");
-            pthread_barrier_init(&barrera, NULL, THREADS);
+            pthread_barrier_init(&barrera, NULL, TT);
 
             scanf("%d", &BARRERAS);
 
@@ -443,11 +443,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, usandoPthreadBarrier, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -476,11 +476,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, usandoBCentral, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
@@ -509,11 +509,11 @@ int main() {
 
                 start = gethrtime_x86();
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_create(&tid[i], NULL, reverseSenseBarrier, (void *) i);
 
 
-                for (long i = 0; i < THREADS; i++)
+                for (long i = 0; i < TT; i++)
                     pthread_join(tid[i], NULL);
 
 
